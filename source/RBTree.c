@@ -8,6 +8,7 @@ enum COLOR {BLACK,RED};
 typedef struct rbnode{
     int key;
     int color;
+    int size;   //记录结点数
     struct rbnode* p;
     struct rbnode* lchild;
     struct rbnode* rchild;
@@ -48,8 +49,9 @@ void LevelTraverse(rbnode *T){
             printf("\n");
         }
         
-        printf("x's level:%d  key:%d color:%s lchild.key:%d rchild.key:%d \n",
-            level,x->key,x->color==BLACK?"BLACK":"RED",
+        printf("x's level:%d  key:%d color:%s size:%d p.key:%d lchild.key:%d rchild.key:%d \n",
+            level,x->key,x->color==BLACK?"BLACK":"RED",x->size,
+            x->p==NULL?0:x->p->key,
             x->lchild==NULL?0:x->lchild->key,x->rchild==NULL?0:x->rchild->key);
 
         if (x->lchild!=NULL){       //若左孩子不空，入队
@@ -62,6 +64,21 @@ void LevelTraverse(rbnode *T){
     printf("LevelTraverse End\n");
 }//LevelTraverse
 
+//前序遍历红黑树，并输出
+void preorder(rbnode* root){
+
+}
+
+//中序遍历红黑树，并输出
+void inorder(rbnode* root){
+
+}
+
+//后序遍历红黑树，并输出
+void postorder(rbnode* root){
+
+}
+
 //左旋
 void LEFT_ROTATE(rbnode* x){
     rbnode *y = x->rchild;
@@ -71,8 +88,11 @@ void LEFT_ROTATE(rbnode* x){
     else if (x == x->p->lchild) x->p->lchild = y; //否则，y就成为x的父亲的孩子
     else x->p->rchild = y;
     x->rchild = y->lchild;
+    if (y->lchild != NULL) y->lchild->p = x;
     y->lchild = x;
     x->p = y;
+    y->size = x->size;
+    x->size = (x->lchild!=NULL?x->lchild->size:0)+(x->rchild!=NULL?x->rchild->size:0)+1;
 }
 
 //右旋
@@ -84,8 +104,11 @@ void RIGHT_ROTATE(rbnode* x){
     else if (x == x->p->lchild) x->p->lchild = y; //否则，y就成为x的父亲的孩子
     else x->p->rchild = y;
     x->lchild = y->rchild;
+    if (y->rchild != NULL) y->rchild->p = x;
     y->rchild = x;
     x->p = y;
+    y->size = x->size;
+    x->size = (x->lchild!=NULL?x->lchild->size:0)+(x->rchild!=NULL?x->rchild->size:0)+1;
 }
 
 //调整
@@ -191,6 +214,7 @@ void RB_INSERT(int newkey){
     if (T->key == 0){   //树是空树,直接作为根节点即可
         T->key = newkey;
         T->color = BLACK;
+        T->size = 1;
         T->p = T->lchild = T->rchild = NULL;
         return;
     }
@@ -199,6 +223,7 @@ void RB_INSERT(int newkey){
     z = (rbnode *)calloc(1,sizeof(rbnode));
     z->color = RED;
     z->key = newkey;
+    z->size = 1;
     z->lchild = NULL;
     z->rchild = NULL;
 
@@ -206,6 +231,7 @@ void RB_INSERT(int newkey){
     rbnode *y;          //y用于记录x搜索时的前驱
     while (x != NULL){
         y = x;
+        y->size ++;     //size加1
         if (x->key > newkey)  x = x->lchild;
         else x = x->rchild;
     }
@@ -217,9 +243,206 @@ void RB_INSERT(int newkey){
     RB_INSERT_FIXUP(z);   //调整
 }
 
+//查找
+rbnode* TREE_SEARCH(int key){
+    rbnode* x = T;
+    while (x != NULL){
+        if (x->key > key) x = x->lchild;
+        else if (x->key < key) x = x->rchild;
+        else return x;
+    }
+    return NULL;
+}
+
+//移植
+void RB_TRANSPLANT(rbnode* u, rbnode* v){
+    if (u->p == NULL){   //u为根节点
+        T = v;
+    }
+    else if (u == u->p->lchild){ //u为左孩子
+        u->p->lchild = v;
+    }
+    else{               //u为右孩子
+        u->p->rchild = v;
+    }
+
+    if (v != NULL) v->p = u->p;
+}
+
+//返回以root为根的子树的最小的节点 
+//实际用于找后继
+rbnode* TREE_MINIMUM(rbnode* root){
+    rbnode* x;
+    rbnode* y;
+    x = root;
+    y = x;
+    while (x->lchild != NULL){
+        y = x;
+        x = x->lchild;
+    }
+    return y;
+}
+
+//删除后的调整
+void RB_DELETE_FIXUP(rbnode* x){
+    rbnode* w;
+    while (x != T && x!=NULL && x->color == BLACK){    
+        if (x == x->p->lchild){ //x是左孩子
+            w = x->p->rchild;
+            if (w == NULL){
+
+            }
+            else if (w->color == RED){      //case 1
+                w->color = BLACK;
+                x->p->color = RED;
+                LEFT_ROTATE(x->p);
+                w = x->p->rchild;
+            }
+            else if (w->color == BLACK && 
+                (w->lchild == NULL || w->lchild->color == BLACK) && 
+                (w->rchild == NULL || w->rchild->color == BLACK)){      //case 2
+                w->color = RED;
+                x = x->p;
+            }
+            else if (w->rchild == NULL || w->rchild->color == BLACK){   //case 3
+                w->lchild->color = BLACK;
+                w->color = RED;
+                RIGHT_ROTATE(w);
+                w = x->p->rchild;
+            }
+            else{           //case 4
+                w->color = x->p->color;
+                x->p->color = BLACK;
+                w->rchild->color = BLACK;
+                LEFT_ROTATE(x->p);
+                x = T; 
+            }
+        }//if
+        else{   //x是右孩子  与左孩子情况完全对称
+            w = x->p->lchild;
+            if (w == NULL){
+
+            }
+            else if (w->color == RED){      //case 1
+                w->color = BLACK;
+                x->p->color = RED;
+                RIGHT_ROTATE(x->p);
+                w = x->p->lchild;
+            }
+            else if (w->color == BLACK && 
+                (w->lchild == NULL || w->lchild->color == BLACK) && 
+                (w->rchild == NULL || w->rchild->color == BLACK)){      //case 2
+                w->color = RED;
+                x = x->p;
+            }
+            else if (w->lchild == NULL || w->lchild->color == BLACK){   //case 3
+                w->rchild->color = BLACK;
+                w->color = RED;
+                LEFT_ROTATE(w);
+                w = x->p->lchild;
+            }
+            else{           //case 4
+                w->color = x->p->color;
+                x->p->color = BLACK;
+                w->lchild->color = BLACK;
+                RIGHT_ROTATE(x->p);
+                x = T; 
+            }
+        }//else
+    }//while
+}//RB_DELETE_FIXUP
+
+//删除
+void RB_DELETE(rbnode* z){
+    if (!z) return; //z为空，结束
+    rbnode* y = z;
+    int y_original_color = y->color;
+    rbnode* x;
+    if (z->lchild == NULL && z->rchild != NULL){ //z左孩子空，把右孩子移植上来即可
+        //调整路径上的size
+        x = T;
+        while (x != z){
+            y = x;
+            y->size --;     //size减1
+            if (x->key > z->key)  x = x->lchild;
+            else x = x->rchild;
+        }
+        RB_TRANSPLANT(z,z->rchild);
+    }
+    else if (z->rchild == NULL && z->lchild != NULL){ //z右孩子空，把左孩子移植上来即可
+        //调整路径上的size
+        x = T;
+        while (x != z){
+            y = x;
+            y->size --;     //size减1
+            if (x->key > z->key)  x = x->lchild;
+            else x = x->rchild;
+        }
+        RB_TRANSPLANT(z,z->lchild);
+    }
+    else if (z->lchild == NULL && z->rchild == NULL){   //z左右孩子均为空,直接删除即可
+        //调整路径上的size
+        x = T;
+        while (x != z){
+            y = x;
+            y->size --;     //size减1
+            if (x->key > z->key)  x = x->lchild;
+            else x = x->rchild;
+        }
+        if (z == z->p->lchild) z->p->lchild = NULL;
+        else z->p->rchild = NULL;
+    }
+    else{
+        y = TREE_MINIMUM(z->rchild);    //找z的后继y
+        //调整路径上的size
+        x = T;
+        while (x != y){
+            x->size --;     //size减1
+            if (x->key > y->key)  x = x->lchild;
+            else x = x->rchild;
+        }
+
+        y_original_color = y->color;
+        x = y->rchild;
+        if (y->p == z){    //若y是z的儿子
+            if (x != NULL) x->p = y;      //无效操作
+        }
+        else{
+            RB_TRANSPLANT(y,y->rchild); //用y的右儿子替换y
+            y->rchild = z->rchild;
+            y->rchild->p = z;
+        }
+        RB_TRANSPLANT(z,y); //用y替换z
+        y->lchild = z->lchild;
+        y->lchild->p = y;
+        y->color = z->color;
+        y->size = z->size;
+
+        if (y_original_color == BLACK){     //y原为黑色，则右分支黑高度减少，需要调整
+            RB_DELETE_FIXUP(x);
+        }
+    }//else
+}//RB_DELETE
+
+//找出子树x中第i小的元素
+rbnode* OS_SELECT(rbnode* x,int i){
+    if (x == NULL) return NULL; //找不到
+
+    int r = (x->lchild == NULL?0:x->lchild->size) + 1;  //顺序
+    if (i == r) return x;   //找到了
+    else if (i < r) return OS_SELECT(x->lchild,i);      //向左子树继续寻找
+    else return OS_SELECT(x->rchild,i-r);               //向右子树继续寻找
+}
+
+//选择算法 
+int Select(){
+
+}
+
 int main(){
     //init
-    int i,array[64],j;
+    int i,array[64],j,n;
+    rbnode* tmp;
     int scale[5]={12,24,36,48,60};
     FILE *fp,*fpt;
 
@@ -237,7 +460,7 @@ int main(){
 	fprintf(fpt,"********result*********\n");
 
 
-	printf("**************CALCULATION START...****************\n");
+	printf("**************CALCULATION START...****************\n\n");
     //Insertion
     for (i=0;i<5;++i){
         T=(rbnode *)calloc(1,sizeof(rbnode));
@@ -246,8 +469,15 @@ int main(){
         for (j=0;j<scale[i];++j){
             RB_INSERT(array[j]);
         }
-        LevelTraverse(T);//tc
-        exit(0);//tc
+
+        n = T->size;
+        //tmp = OS_SELECT(T,n/3);
+        //RB_DELETE(tmp);
+        RB_DELETE(OS_SELECT(T,n/3));
+        //tmp = OS_SELECT(T,n/4);
+        RB_DELETE(OS_SELECT(T,n/4));
+        //LevelTraverse(T);//tc
+        //exit(0);//tc
         timeend();
         //output time to time.txt
 		fprintf(fpt,"\nN:%d time is %.8lfs\n",scale[i],returntime());
