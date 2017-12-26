@@ -66,17 +66,35 @@ void LevelTraverse(rbnode *T){
 
 //前序遍历红黑树，并输出
 void preorder(rbnode* root){
-
+    rbnode* x = root;
+    printf("x's key:%d color:%s size:%d p.key:%d lchild.key:%d rchild.key:%d \n",
+            x->key,x->color==BLACK?"BLACK":"RED",x->size,
+            x->p==NULL?0:x->p->key,
+            x->lchild==NULL?0:x->lchild->key,x->rchild==NULL?0:x->rchild->key);
+    if (root->lchild != NULL) preorder(root->lchild);
+    if (root->rchild != NULL) preorder(root->rchild);
 }
 
 //中序遍历红黑树，并输出
 void inorder(rbnode* root){
-
+     if (root->lchild != NULL) inorder(root->lchild);
+    rbnode* x = root;
+    printf("x's key:%d color:%s size:%d p.key:%d lchild.key:%d rchild.key:%d \n",
+            x->key,x->color==BLACK?"BLACK":"RED",x->size,
+            x->p==NULL?0:x->p->key,
+            x->lchild==NULL?0:x->lchild->key,x->rchild==NULL?0:x->rchild->key);
+    if (root->rchild != NULL) inorder(root->rchild);
 }
 
 //后序遍历红黑树，并输出
 void postorder(rbnode* root){
-
+    if (root->lchild != NULL) postorder(root->lchild);
+    if (root->rchild != NULL) postorder(root->rchild);
+    rbnode* x = root;
+    printf("x's key:%d color:%s size:%d p.key:%d lchild.key:%d rchild.key:%d \n",
+            x->key,x->color==BLACK?"BLACK":"RED",x->size,
+            x->p==NULL?0:x->p->key,
+            x->lchild==NULL?0:x->lchild->key,x->rchild==NULL?0:x->rchild->key);
 }
 
 //左旋
@@ -434,14 +452,99 @@ rbnode* OS_SELECT(rbnode* x,int i){
     else return OS_SELECT(x->rchild,i-r);               //向右子树继续寻找
 }
 
-//选择算法 
-int Select(){
-
+//对输入的数组，用输入的主元进行划分
+//返回低区的元素数
+int PARTITION(int pivot,int* array,int n){
+    int i = -1;
+    int j,tmp,flag;
+    flag = 0;
+    for (j=0;j<n-1;++j){
+        if (array[j] < pivot){  //低区元素
+            ++i;
+            tmp = array[i];
+            array[i] = array[j];
+            array[j] = tmp;
+        }
+        else if (array[j] == pivot){    //把枢纽值放到最后。只执行一次
+            if (flag == 0){
+                array[j] = array[n-1];
+                array[n-1] = pivot;
+                if (array[j] < pivot){  //低区元素
+                    ++i;
+                    tmp = array[i];
+                    array[i] = array[j];
+                    array[j] = tmp;
+                }
+                flag = 1;
+            }
+        } 
+    }
+    tmp = array[i+1];
+    array[i+1] = array[n-1];
+    array[n-1] = tmp;
+    return i+1;
 }
+
+//选择算法 
+int SELECT(int* array,int n,int i){
+    if (n == 1) return array[0];
+    int j,k,key,m;
+    int midarray[n/5+1];  //共n/5组
+    //对每组插入排序，并将其中位数取出
+    for (j=0;j<n/5;j++){
+        //组内插入排序
+        for (k=5*j+1;k<5*(j+1);++k){
+            key = array[k];
+            //将key插入
+            m = k-1;
+            while (m > 5*j-1 && array[m] > key){
+                array[m+1] = array[m];
+                m--;
+            }
+            array[m+1] = key;
+        }
+        //将中位数取出
+        midarray[j] = array[5*j+2]; 
+    }
+    //最后一组（不足5个）进行排序
+    for (k=5*j+1;k<n;++k){
+        key = array[k];
+        //将key插入
+        m = k-1;
+        while (m > 5*j-1 && array[m] > key){
+            array[m+1] = array[m];
+            m--;
+        }
+        array[m+1] = key;
+    }
+
+    //将其中位数取出
+    midarray[n/5] = array[(5*j+n-1)/2];
+
+    //递归调用SELECT，求出中位数的中位数
+    int midofmid = SELECT(midarray,n/5+1,(n/5+2)/2);
+
+    //利用partition，对输入数组进行划分
+    int low = PARTITION(midofmid,array,n);
+    
+    if (i == low+1){    //那么中位数的中位数就是第i小的元素
+        return midofmid;
+    }
+    else if (i < low+1){    //在低区继续寻找
+        int arraylow[low];
+        memcpy(arraylow,array,low*sizeof(int));
+        return SELECT(arraylow,low,i);
+    }
+    else{               //在高区寻找i-k小的元素
+        int arrayhigh[n-low-1];
+        memcpy(arrayhigh,array+low+1,(n-low-1)*sizeof(int));
+        return SELECT(arrayhigh,n-low-1,i-low-1);
+    }
+}//SELECT
 
 int main(){
     //init
-    int i,array[64],j,n;
+    int i,array[64],j,n,tmparray[64];
     rbnode* tmp;
     int scale[5]={12,24,36,48,60};
     FILE *fp,*fpt;
@@ -453,10 +556,9 @@ int main(){
 	}	
 	fclose(fp);
 
+    memcpy(tmparray,array,64*sizeof(int));
 	
-	//fp=fopen("output.txt","w+");
 	fpt=fopen("time.txt","w+");
-	//fprintf(fp,"********result*********\n");
 	fprintf(fpt,"********result*********\n");
 
 
@@ -471,11 +573,20 @@ int main(){
         }
 
         n = T->size;
-        //tmp = OS_SELECT(T,n/3);
-        //RB_DELETE(tmp);
-        RB_DELETE(OS_SELECT(T,n/3));
-        //tmp = OS_SELECT(T,n/4);
-        RB_DELETE(OS_SELECT(T,n/4));
+        
+        tmp = OS_SELECT(T,n/3);
+        //检验：
+        if (tmp->key != SELECT(tmparray,n,n/3)){
+            printf("OS_SELECT error!\n");
+        }
+        RB_DELETE(tmp);
+        
+        tmp = OS_SELECT(T,n/4);
+        //检验：
+        if (tmp->key != SELECT(tmparray,n,n/4)){
+            printf("OS_SELECT error!\n");
+        }
+        RB_DELETE(tmp);
         //LevelTraverse(T);//tc
         //exit(0);//tc
         timeend();
